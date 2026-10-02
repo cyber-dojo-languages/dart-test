@@ -1,0 +1,9 @@
+FROM ghcr.io/cyber-dojo-languages/dart:62e48dc
+LABEL maintainer=jon@jaggersoft.com
+
+# A kata has no network, so package:test and everything it depends on is
+# fetched into the sandbox user's pub cache here. The script explains what
+# else is baked in and why.
+ENV PUB_CACHE=/home/sandbox/.pub-cache
+COPY install.sh .
+RUN bash ./install.sh && rm ./install.sh
