@@ -33,6 +33,13 @@ dart --disable-analytics > /dev/null
 
 # A kata-shaped package, so what is cached is what a kata compiles.
 # Must stay in step with the start-point's pubspec.yaml.
+#
+# test is pinned, not left to resolve, because a kata runs pub get --offline
+# against this cache. The image is rebuilt every week under the same tag, so
+# an unpinned test would drift, and a 2.x release would fall outside the
+# start-point's ^1.x and leave a kata nothing to resolve: every light amber.
+# Do not change it back to any. Raising it means checking the start-point's
+# pubspec.yaml still admits it.
 mkdir -p "${WARM_DIR}/lib" "${WARM_DIR}/test"
 cd "${WARM_DIR}"
 cat > pubspec.yaml <<'EOF'
@@ -40,7 +47,7 @@ name: hiker
 environment:
   sdk: ^3.0.0
 dev_dependencies:
-  test: any
+  test: 1.32.0
 EOF
 cat > lib/hiker.dart <<'EOF'
 int answer() => 6 * 9;
