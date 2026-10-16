@@ -22,6 +22,26 @@ set -Eeu -o pipefail
 # sandbox took about 2400ms, and the cached run below about 280ms.
 # The check at the end fails the build if a test run would not be faster.
 
+# Appends one test framework to the test_frameworks list the base image
+# wrote in /versions.json, keeping any entry an earlier image added. Stops
+# the build if the list is not found, rather than record nothing.
+add_test_framework()
+{
+  local -r name="${1}"
+  local -r version="${2}"
+  local -r entry="{\"name\": \"${name}\", \"version\": \"${version}\"}"
+  if grep -q '"test_frameworks": \[\]' /versions.json; then
+    sed -i "s|\"test_frameworks\": \[\]|\"test_frameworks\": [${entry}]|" /versions.json
+  else
+    sed -i "/\"test_frameworks\": \[/s|}\]|}, ${entry}]|" /versions.json
+  fi
+  if ! grep -q -F "${entry}" /versions.json; then
+    echo "Could not add ${name} to /versions.json" >&2
+    cat /versions.json >&2
+    exit 1
+  fi
+}
+
 readonly CACHE_DIR=/home/sandbox/.cache/dart_test
 readonly WARM_DIR=/tmp/warm
 
@@ -32,14 +52,12 @@ export HOME=/home/sandbox
 dart --disable-analytics > /dev/null
 
 # A kata-shaped package, so what is cached is what a kata compiles.
-# Must stay in step with the start-point's pubspec.yaml.
 #
-# test is pinned, not left to resolve, because a kata runs pub get --offline
-# against this cache. The image is rebuilt every week under the same tag, so
-# an unpinned test would drift, and a 2.x release would fall outside the
-# start-point's ^1.x and leave a kata nothing to resolve: every light amber.
-# Do not change it back to any. Raising it means checking the start-point's
-# pubspec.yaml still admits it.
+# test is left to resolve, so the image holds its newest release. A kata runs
+# pub get --offline against this cache, so the start-point's pubspec.yaml has
+# to admit the version resolved here, or a kata has nothing to resolve and
+# every light is amber. The constraint to copy into it is printed between
+# markers in the build log.
 mkdir -p "${WARM_DIR}/lib" "${WARM_DIR}/test"
 cd "${WARM_DIR}"
 cat > pubspec.yaml <<'EOF'
@@ -47,7 +65,7 @@ name: hiker
 environment:
   sdk: ^3.0.0
 dev_dependencies:
-  test: 1.32.0
+  test: any
 EOF
 cat > lib/hiker.dart <<'EOF'
 int answer() => 6 * 9;
@@ -93,14 +111,17 @@ if [ $(( COLD )) -le $(( WARM * 2 )) ]; then
   exit 42
 fi
 
-# The version pub resolved, recorded beside the one the base image wrote.
+# The version pub resolved, recorded beside the language the base image wrote.
 readonly TEST_VERSION=$(sed --quiet \
   '/^  test:$/,/^    version:/s/^    version: "\(.*\)"$/\1/p' pubspec.lock)
 if [ -z "${TEST_VERSION}" ]; then
   echo "ERROR: no version for test in pubspec.lock" >&2
   exit 42
 fi
-sed --in-place "s/}\$/,\"test\":\"${TEST_VERSION}\"}/" /versions.json
+add_test_framework test "${TEST_VERSION}"
+echo '--- start-point pubspec.yaml dev_dependencies ---'
+echo "  test: ^${TEST_VERSION}"
+echo '--- end start-point pubspec.yaml dev_dependencies ---'
 cat /versions.json
 
 cd /
