@@ -1,4 +1,4 @@
-FROM ghcr.io/cyber-dojo-languages/dart:2971139
+FROM ghcr.io/cyber-dojo-languages/dart:3aebf87@sha256:82c09e14e6a7783cd51f6e2523c60109e90997a10c927476c84a63370f757230
 LABEL maintainer=jon@jaggersoft.com
 
 # A kata has no network, so package:test and everything it depends on is
