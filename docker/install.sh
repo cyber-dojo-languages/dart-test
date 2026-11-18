@@ -85,10 +85,21 @@ dart pub get
 
 now_ms() { echo $(( $(date +%s%N) / 1000000 )); }
 
-# The red kata fails, so a non-zero status is expected from each run.
+# The red kata fails, so a non-zero status is expected from each run. Its
+# output is kept, and printed if the run left no snapshot, since it is what
+# says why.
 readonly COLD_START=$(now_ms)
-dart test > /dev/null || true
+readonly COLD_OUTPUT=$(dart test 2>&1 || true)
 readonly COLD=$(( $(now_ms) - COLD_START ))
+
+if ! compgen -G '.dart_tool/pub/bin/test/test.dart-*.snapshot' > /dev/null; then
+  echo "ERROR: dart test left no test.dart-*.snapshot" >&2
+  echo "--- dart test output ---" >&2
+  echo "${COLD_OUTPUT}" >&2
+  echo "--- files under .dart_tool ---" >&2
+  find .dart_tool -not -path '*/package_config*' >&2
+  exit 42
+fi
 
 mkdir -p "${CACHE_DIR}"
 cp .dart_tool/pub/bin/test/test.dart-*.snapshot "${CACHE_DIR}/test.snapshot"
