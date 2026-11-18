@@ -11,7 +11,7 @@ set -Eeu -o pipefail
 # and anything it writes there is thrown away afterwards:
 #
 #  - test.snapshot: package:test's runner, compiled. `dart test` builds this
-#    into .dart_tool/pub/bin/ the first time it runs in a package, which costs
+#    into .dart_tool/dartdev/bin/ the first time it runs in a package, which costs
 #    about 2s, so in a fresh sandbox that is every test run.
 #  - incremental_kernel.*: the test runner's compiled copy of package:test and
 #    a kata-shaped test, which it reads from .dart_tool/test/ to compile only
@@ -92,8 +92,9 @@ readonly COLD_START=$(now_ms)
 readonly COLD_OUTPUT=$(dart test 2>&1 || true)
 readonly COLD=$(( $(now_ms) - COLD_START ))
 
-if ! compgen -G '.dart_tool/pub/bin/test/test.dart-*.snapshot' > /dev/null; then
-  echo "ERROR: dart test left no test.dart-*.snapshot" >&2
+readonly SNAPSHOT=.dart_tool/dartdev/bin/test/bin/test.dart.snapshot
+if [ ! -f "${SNAPSHOT}" ]; then
+  echo "ERROR: dart test left no ${SNAPSHOT}" >&2
   echo "--- dart test output ---" >&2
   echo "${COLD_OUTPUT}" >&2
   echo "--- files under .dart_tool ---" >&2
@@ -102,7 +103,7 @@ if ! compgen -G '.dart_tool/pub/bin/test/test.dart-*.snapshot' > /dev/null; then
 fi
 
 mkdir -p "${CACHE_DIR}"
-cp .dart_tool/pub/bin/test/test.dart-*.snapshot "${CACHE_DIR}/test.snapshot"
+cp "${SNAPSHOT}" "${CACHE_DIR}/test.snapshot"
 cp .dart_tool/test/incremental_kernel.* "${CACHE_DIR}/"
 
 # What a kata's cyber-dojo.sh does, in a sandbox holding nothing from before.
